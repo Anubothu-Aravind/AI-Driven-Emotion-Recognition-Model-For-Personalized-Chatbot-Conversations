@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face & Emotion Recognition</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; }
+        h1 { color: #333; }
+        .container { margin-top: 50px; }
+        img { border: 5px solid #333; border-radius: 10px; width: 640px; }
+        .footer { margin-top: 20px; font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face & Emotion Detection</h1>
+        <img src="{{ url_for('video_feed') }}">
+        <div class="footer">Real-time expression tracking system</div>
+    </div>
+</body>
+</html>

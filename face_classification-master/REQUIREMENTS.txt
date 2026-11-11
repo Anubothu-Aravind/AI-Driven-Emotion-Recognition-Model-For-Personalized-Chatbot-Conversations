@@ -1,0 +1,18 @@
+# ── Core ML Dependencies ──
+tensorflow>=2.15.0
+keras>=3.0.0
+numpy<2.0.0
+pandas
+h5py
+statistics
+opencv-python
+scipy
+matplotlib
+pillow
+
+# ── Backend (FastAPI + Chatbot) ──
+fastapi
+uvicorn
+python-dotenv
+groq
+pydantic

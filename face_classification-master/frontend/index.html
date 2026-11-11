@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Emotion-Aware Chatbot</title>
+    <style>
+        /* ── Reset & Base ── */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Scrollable panel helper ── */
+        .camera-panel-scroll {
+            flex: 1 1 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+        }
+
+        .camera-panel-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .camera-panel-scroll::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+        .camera-panel-scroll::-webkit-scrollbar-thumb {
+            background: rgba(167, 139, 250, 0.4);
+            border-radius: 3px;
+        }
+        .camera-panel-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(167, 139, 250, 0.6);
+        }
+
+        /* ── Layout ── */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* ── Left Panel: Camera ── */
+        .camera-panel {
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            background: rgba(15, 12, 41, 0.95);
+            border-right: 1px solid rgba(255,255,255,0.08);
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .camera-header {
+            padding: 16px 24px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .camera-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #a78bfa;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #10b981;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .camera-feed {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .camera-feed img {
+            width: 100%;
+            max-height: 300px;
+            border-radius: 12px;
+            border: 2px solid rgba(167, 139, 250, 0.3);
+            object-fit: contain;
+        }
+
+        .emotion-stats {
+            padding: 14px 24px;
+            background: rgba(255,255,255,0.03);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+
+        .emotion-stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .emotion-stats-header h3 {
+            font-size: 13px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timer-badge {
+            font-size: 11px;
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.15);
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+
+        .emotion-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .emotion-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .emotion-bar-label {
+            width: 70px;
+            font-size: 11px;
+            color: #9ca3af;
+            text-transform: capitalize;
+        }
+
+        .emotion-bar-track {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .emotion-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .emotion-bar-count {
+            width: 30px;
+            text-align: right;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .dominant-display {
+            margin-top: 12px;
+            padding: 10px 16px;
+            background: rgba(167, 139, 250, 0.1);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dominant-display .label {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .dominant-display .value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #a78bfa;
+            text-transform: uppercase;
+        }
+
+        /* ── Emoji Override Toggle ── */
+        .emoji-toggle-section {
+            padding: 14px 24px 18px;
+            background: rgba(255,255,255,0.02);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+
+        .emoji-toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .emoji-toggle-header h3 {
+            font-size: 13px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .emoji-active-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(167, 139, 250, 0.15);
+            color: #a78bfa;
+            display: none;
+        }
+
+        .emoji-active-badge.show {
+            display: inline-block;
+        }
+
+        .emoji-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding-bottom: 4px;
+        }
+
+        .emoji-btn {
+            width: 52px;
+            height: 52px;
+            font-size: 26px;
+            border: 2px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.04);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 4px 2px;
+        }
+
+        .emoji-btn:hover {
+            border-color: rgba(167, 139, 250, 0.5);
+            background: rgba(167, 139, 250, 0.12);
+            transform: scale(1.08);
+        }
+
+        .emoji-btn.active {
+            border-color: #a78bfa;
+            background: rgba(167, 139, 250, 0.25);
+            box-shadow: 0 0 12px rgba(167, 139, 250, 0.4);
+            transform: scale(1.08);
+        }
+
+        .emoji-btn .emoji-label {
+            font-size: 8px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .emoji-btn.active .emoji-label {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .effective-emotion-display {
+            margin-top: 18px;
+            padding: 8px 14px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .effective-emotion-display .label {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .effective-emotion-display .value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #22c55e;
+            text-transform: uppercase;
+        }
+
+        .confidence-display {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: right;
+        }
+
+        /* ── Right Panel: Chat ── */
+        .chat-panel {
+            width: 55%;
+            display: flex;
+            flex-direction: column;
+            background: rgba(24, 24, 38, 0.98);
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bot-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .chat-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chat-header .subtitle {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .reset-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* ── Messages ── */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(167, 139, 250, 0.3);
+            border-radius: 2px;
+        }
+
+        .message {
+            display: flex;
+            gap: 10px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .message.bot .message-avatar {
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot .message-bubble {
+            background: rgba(255,255,255,0.07);
+            color: #e0e0e0;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .typing-indicator.show {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #a78bfa;
+            border-radius: 50%;
+            animation: typing-bounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        /* ── Input Area ── */
+        .chat-input-area {
+            padding: 16px 24px;
+            background: rgba(255,255,255,0.03);
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 18px;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: rgba(167, 139, 250, 0.5);
+        }
+
+        .chat-input::placeholder {
+            color: #6b7280;
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s, opacity 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Welcome message ── */
+        .welcome-msg {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .welcome-msg .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .welcome-msg h3 {
+            color: #a78bfa;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .welcome-msg p {
+            font-size: 13px;
+            line-height: 1.6;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .app-container {
+                flex-direction: column;
+            }
+            .camera-panel, .chat-panel {
+                width: 100%;
+            }
+            .camera-panel {
+                height: 40vh;
+            }
+            .chat-panel {
+                height: 60vh;
+            }
+            .emotion-stats {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- ═══ Left: Camera Panel ═══ -->
+        <div class="camera-panel">
+            <div class="camera-header">
+                <h2>📷 Live Camera Feed</h2>
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    <span>Detecting</span>
+                </div>
+            </div>
+
+            <div class="camera-panel-scroll">
+            <div class="camera-feed">
+                <img id="cameraFeed" src="/video_feed" alt="Camera Feed">
+            </div>
+
+            <div class="emotion-stats">
+                <div class="emotion-stats-header">
+                    <h3>Emotion Analysis</h3>
+                    <span class="timer-badge" id="timerBadge">0s / 60s</span>
+                </div>
+                <div class="emotion-bars" id="emotionBars">
+                    <!-- Filled dynamically by JS -->
+                </div>
+                <div class="dominant-display">
+                    <span class="label">Dominant Emotion (60s)</span>
+                    <span class="value" id="dominantEmotion">NEUTRAL</span>
+                </div>
+            </div>
+
+            <!-- ═══ Emoji Override Toggle ═══ -->
+            <div class="emoji-toggle-section">
+                <div class="emoji-toggle-header">
+                    <h3>Emoji Override</h3>
+                    <span class="emoji-active-badge" id="emojiActiveBadge">ACTIVE</span>
+                </div>
+                <div class="emoji-buttons" id="emojiButtons">
+                    <div class="emoji-btn" data-emotion="happy" onclick="toggleEmoji(this)" title="Happy">
+                        <span class="emoji-icon">😊</span><span class="emoji-label">happy</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="sad" onclick="toggleEmoji(this)" title="Sad">
+                        <span class="emoji-icon">😢</span><span class="emoji-label">sad</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="angry" onclick="toggleEmoji(this)" title="Angry">
+                        <span class="emoji-icon">😠</span><span class="emoji-label">angry</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="fear" onclick="toggleEmoji(this)" title="Fear">
+                        <span class="emoji-icon">😨</span><span class="emoji-label">fear</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="surprise" onclick="toggleEmoji(this)" title="Surprise">
+                        <span class="emoji-icon">😲</span><span class="emoji-label">surprise</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="disgust" onclick="toggleEmoji(this)" title="Disgust">
+                        <span class="emoji-icon">🤢</span><span class="emoji-label">disgust</span>
+                    </div>
+                    <div class="emoji-btn" data-emotion="neutral" onclick="toggleEmoji(this)" title="Neutral">
+                        <span class="emoji-icon">😐</span><span class="emoji-label">neutral</span>
+                    </div>
+                </div>
+                <div class="effective-emotion-display">
+                    <span class="label">Effective Emotion</span>
+                    <span class="value" id="effectiveEmotion">NEUTRAL</span>
+                </div>
+                <div class="confidence-display" id="confidenceDisplay">
+                    Face Confidence: 0%
+                </div>
+            </div>
+            </div> <!-- end camera-panel-scroll -->
+        </div>
+
+        <!-- ═══ Right: Chat Panel ═══ -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <div class="bot-avatar">🤖</div>
+                    <div>
+                        <h2>AI Assistant</h2>
+                        <div class="subtitle">Adaptive conversational chatbot</div>
+                    </div>
+                </div>
+                <button class="reset-btn" onclick="resetChat()">Reset Chat</button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-msg">
+                    <div class="icon">💬</div>
+                    <h3>Welcome!</h3>
+                    <p>I'm your AI assistant. Start a conversation and I'll adapt my responses naturally to provide the best experience. Your camera feed helps me understand context silently.</p>
+                </div>
+
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <input
+                        type="text"
+                        class="chat-input"
+                        id="chatInput"
+                        placeholder="Type your message..."
+                        autocomplete="off"
+                    >
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════════
+        //  Configuration
+        // ══════════════════════════════════════════════
+        const API_BASE = "";  // Same origin
+
+        // Emotion colors for the bars
+        const EMOTION_COLORS = {
+            angry:    "#ef4444",
+            disgust:  "#84cc16",
+            fear:     "#f59e0b",
+            happy:    "#22c55e",
+            sad:      "#3b82f6",
+            surprise: "#06b6d4",
+            neutral:  "#a78bfa",
+        };
+
+        const ALL_EMOTIONS = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"];
+
+        // ══════════════════════════════════════════════
+        //  Emotion Status Polling
+        // ══════════════════════════════════════════════
+        function initEmotionBars() {
+            const container = document.getElementById("emotionBars");
+            container.innerHTML = "";
+            ALL_EMOTIONS.forEach(em => {
+                const row = document.createElement("div");
+                row.className = "emotion-bar-row";
+                row.innerHTML = `
+                    <span class="emotion-bar-label">${em}</span>
+                    <div class="emotion-bar-track">
+                        <div class="emotion-bar-fill" id="bar-${em}" style="background:${EMOTION_COLORS[em]}; width:0%"></div>
+                    </div>
+                    <span class="emotion-bar-count" id="count-${em}">0</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        async function pollEmotionStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/emotion/status`);
+                const data = await res.json();
+
+                // Update timer
+                const elapsed = Math.round(data.seconds_elapsed || 0);
+                document.getElementById("timerBadge").textContent = `${elapsed}s / ${data.window_size_seconds || 60}s`;
+
+                // Update dominant
+                const dom = (data.dominant_emotion || "neutral").toUpperCase();
+                document.getElementById("dominantEmotion").textContent = dom;
+
+                // Update bars
+                const counts = data.current_window_counts || {};
+                const total = data.total_frames_in_window || 1;
+
+                ALL_EMOTIONS.forEach(em => {
+                    const c = counts[em] || 0;
+                    const pct = total > 0 ? Math.round((c / total) * 100) : 0;
+                    const bar = document.getElementById(`bar-${em}`);
+                    const countEl = document.getElementById(`count-${em}`);
+                    if (bar) bar.style.width = pct + "%";
+                    if (countEl) countEl.textContent = c;
+                });
+
+                // Update effective emotion & confidence
+                const effective = (data.effective_emotion || "neutral").toUpperCase();
+                document.getElementById("effectiveEmotion").textContent = effective;
+
+                const conf = data.latest_confidence || 0;
+                const confPct = Math.round(conf * 100);
+                const confEl = document.getElementById("confidenceDisplay");
+                confEl.textContent = `Face Confidence: ${confPct}%` +
+                    (conf < 0.6 ? "  (below 0.6 threshold)" : "");
+
+                // Sync emoji active state from server
+                const serverEmoji = data.emoji_override;
+                if (serverEmoji !== activeEmojiEmotion) {
+                    activeEmojiEmotion = serverEmoji || null;
+                    document.querySelectorAll(".emoji-btn").forEach(b => {
+                        b.classList.toggle("active", serverEmoji && b.dataset.emotion === serverEmoji);
+                    });
+                    updateEmojiBadge();
+                }
+
+            } catch (e) {
+                // Server might not be ready
+            }
+        }
+
+        // Poll every 2 seconds
+        initEmotionBars();
+        setInterval(pollEmotionStatus, 2000);
+        pollEmotionStatus();
+
+        // ══════════════════════════════════════════════
+        //  Emoji Override Toggle
+        // ══════════════════════════════════════════════
+        let activeEmojiEmotion = null;
+
+        async function toggleEmoji(btn) {
+            const emotion = btn.dataset.emotion;
+
+            // If already active, deactivate (clear override)
+            if (btn.classList.contains("active")) {
+                btn.classList.remove("active");
+                activeEmojiEmotion = null;
+                await sendEmojiToBackend(null);
+            } else {
+                // Deactivate all, activate this one
+                document.querySelectorAll(".emoji-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                activeEmojiEmotion = emotion;
+                await sendEmojiToBackend(emotion);
+            }
+
+            updateEmojiBadge();
+        }
+
+        async function sendEmojiToBackend(emotion) {
+            try {
+                await fetch(`${API_BASE}/emoji`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ emotion: emotion }),
+                });
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function updateEmojiBadge() {
+            const badge = document.getElementById("emojiActiveBadge");
+            if (activeEmojiEmotion) {
+                badge.textContent = `OVERRIDE: ${activeEmojiEmotion.toUpperCase()}`;
+                badge.className = "emoji-active-badge show";
+            } else {
+                badge.className = "emoji-active-badge";
+            }
+        }
+
+        // ══════════════════════════════════════════════
+        //  Chat Functions
+        // ══════════════════════════════════════════════
+        const chatMessages = document.getElementById("chatMessages");
+        const chatInput = document.getElementById("chatInput");
+        const sendBtn = document.getElementById("sendBtn");
+
+        // Send on Enter key
+        chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function addMessage(text, sender, emotionUsed) {
+            // Remove welcome message if present
+            const welcome = chatMessages.querySelector(".welcome-msg");
+            if (welcome) welcome.remove();
+
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message ${sender}`;
+
+            const avatar = document.createElement("div");
+            avatar.className = "message-avatar";
+            avatar.textContent = sender === "user" ? "👤" : "🤖";
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            bubble.textContent = text;
+
+            // Show emotion tag on bot messages
+            if (sender === "bot" && emotionUsed) {
+                const tag = document.createElement("div");
+                tag.style.cssText = "font-size:10px;color:#a78bfa;margin-top:4px;opacity:0.7;";
+                tag.textContent = `[tone: ${emotionUsed}]`;
+                bubble.appendChild(tag);
+            }
+
+            msgDiv.appendChild(avatar);
+            msgDiv.appendChild(bubble);
+            chatMessages.appendChild(msgDiv);
+
+            // Auto-scroll
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping(show) {
+            const ti = document.getElementById("typingIndicator");
+            if (!ti) return;
+            ti.className = show ? "typing-indicator show" : "typing-indicator";
+            if (show) chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            // Add user message
+            addMessage(text, "user");
+            chatInput.value = "";
+            sendBtn.disabled = true;
+            showTyping(true);
+
+            try {
+                const res = await fetch(`${API_BASE}/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text }),
+                });
+                const data = await res.json();
+                showTyping(false);
+                addMessage(data.reply, "bot", data.emotion_used);
+            } catch (e) {
+                showTyping(false);
+                addMessage("Sorry, I'm having trouble connecting. Please try again.", "bot");
+            }
+
+            sendBtn.disabled = false;
+            chatInput.focus();
+        }
+
+        async function resetChat() {
+            try {
+                await fetch(`${API_BASE}/chat/reset`, { method: "POST" });
+                // Also clear emoji override
+                await fetch(`${API_BASE}/emoji`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ emotion: null }),
+                });
+            } catch (e) { /* ignore */ }
+
+            // Clear emoji UI state
+            activeEmojiEmotion = null;
+            document.querySelectorAll(".emoji-btn").forEach(b => b.classList.remove("active"));
+            updateEmojiBadge();
+
+            // Clear UI
+            chatMessages.innerHTML = `
+                <div class="welcome-msg">
+                    <div class="icon">💬</div>
+                    <h3>Welcome!</h3>
+                    <p>I'm your AI assistant. Start a conversation and I'll adapt my responses naturally to provide the best experience. Your camera feed helps me understand context silently.</p>
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
